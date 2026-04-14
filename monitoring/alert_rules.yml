@@ -1,0 +1,62 @@
+groups:
+ 
+  - name: todo_app_slo_alerts
+    interval: 15s
+    rules:
+ 
+      - alert: HighErrorRateWarning
+        expr: |
+          (
+            sum(rate(http_requests_total{job="todo-backend", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="todo-backend"}[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          app: todo-app
+        annotations:
+          summary: "WARNING: To-Do API error rate above 1%"
+          description: "The To-Do backend error rate is above 1%. SLO target is 99.9% availability."
+ 
+      - alert: SLOBreachCritical
+        expr: |
+          (
+            sum(rate(http_requests_total{job="todo-backend", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="todo-backend"}[5m]))
+          ) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          app: todo-app
+        annotations:
+          summary: "CRITICAL: To-Do App SLO breach — error rate above 5%"
+          description: "IMMEDIATE ACTION REQUIRED. Error rate exceeded 5%. Monthly error budget will be exhausted within 2 hours."
+ 
+  - name: todo_app_infrastructure
+    interval: 15s
+    rules:
+ 
+      - alert: SlowAPIResponseWarning
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="todo-backend"}[5m])) by (le, route)
+          ) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          app: todo-app
+        annotations:
+          summary: "WARNING: P95 latency above 500ms"
+          description: "The 95th percentile response time exceeded the 500ms SLO target. Check MongoDB query performance."
+ 
+      - alert: TodoBackendDown
+        expr: up{job="todo-backend"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          app: todo-app
+        annotations:
+          summary: "CRITICAL: To-Do backend is DOWN"
+          description: "Prometheus cannot reach the To-Do backend. Full service outage. SLO: 99.9% uptime = max 43.2 min downtime/month."

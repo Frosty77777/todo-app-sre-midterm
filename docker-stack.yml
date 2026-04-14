@@ -1,0 +1,154 @@
+version: '3.8'
+ 
+# ═══════════════════════════════════════════════════════════════════
+#  docker-stack.yml — Docker Swarm Deployment (BONUS +10 pts)
+#
+#  ПОРЯДОК ЗАПУСКА:
+#    1. docker swarm init
+#    2. docker build -t todo-frontend ./frontend
+#    3. docker build -t todo-backend  ./backend
+#    4. docker stack deploy -c docker-stack.yml todoapp
+#
+#  ПОЛЕЗНЫЕ КОМАНДЫ:
+#    docker service ls                        # все сервисы и реплики
+#    docker service ps todoapp_backend        # где запущен backend
+#    docker service ps todoapp_frontend       # где запущен frontend
+#    docker service logs todoapp_backend      # логи backend
+#    docker service scale todoapp_backend=3   # увеличить реплики
+#    docker stack rm todoapp                  # удалить стек
+# ═══════════════════════════════════════════════════════════════════
+ 
+networks:
+  app-overlay:
+    driver: overlay
+    attachable: true
+  monitoring-overlay:
+    driver: overlay
+    attachable: true
+ 
+volumes:
+  mongo_data:
+  prometheus_data:
+  grafana_data:
+ 
+services:
+ 
+  # ── 1. Frontend (2 реплики) ────────────────────────────────────
+  frontend:
+    image: todo-frontend:latest
+    ports:
+      - "80:80"
+    networks:
+      - app-overlay
+    depends_on:
+      - backend
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+ 
+  # ── 2. Backend (2 реплики) ─────────────────────────────────────
+  backend:
+    image: todo-backend:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URL=mongodb://mongo:27017/todoapp   
+      - JWT_SECRET=supersecretjwtkey_changeme
+      - JWT_EXPIRES_IN=7d
+    networks:
+      - app-overlay
+      - monitoring-overlay
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+ 
+  # ── 3. MongoDB (1 реплика, только на manager) ──────────────────
+  mongo:
+    image: mongo:7.0
+    environment:
+      - MONGO_INITDB_DATABASE=todoapp
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app-overlay
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+ 
+  # ── 4. Prometheus ──────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring-overlay
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+ 
+  # ── 5. Grafana ─────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - monitoring-overlay
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+ 
+  # ── 6. Node Exporter (на каждом узле swarm) ───────────────────
+  node_exporter:
+    image: prom/node-exporter:v1.7.0
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring-overlay
+    deploy:
+      mode: global    # автоматически по одному экземпляру на каждый узел swarm
+ 
