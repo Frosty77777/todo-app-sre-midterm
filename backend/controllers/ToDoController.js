@@ -1,13 +1,33 @@
 const ToDoModel = require('../models/ToDoModel');
+const CategoryModel = require('../models/CategoryModel');
+
+const serializeTodo = (todo) => {
+    const data = todo.toJSON();
+    const serializedCategory = data.category
+        ? {
+            ...data.category,
+            _id: data.category.id,
+        }
+        : null;
+
+    return {
+        ...data,
+        _id: data.id,
+        user: data.userId,
+        category: serializedCategory || data.categoryId,
+    };
+};
 
 // GET all todos (for logged-in user only)
 module.exports.getToDo = async (req, res) => {
     try {
         // Only get todos for the logged-in user
-        const todos = await ToDoModel.find({ user: req.user._id })
-            .populate('category', 'name description color')
-            .sort({ createdAt: -1 });
-        return res.json(todos);
+        const todos = await ToDoModel.findAll({
+            where: { userId: req.user.id },
+            include: [{ model: CategoryModel, as: 'category', attributes: ['id', 'name', 'description', 'color'] }],
+            order: [['createdAt', 'DESC']],
+        });
+        return res.json(todos.map(serializeTodo));
     } catch (error) {
         console.error('Error loading todos:', error);
         return res.status(500).json({ error: error.message || 'Failed to load todos' });
@@ -17,12 +37,15 @@ module.exports.getToDo = async (req, res) => {
 // GET single todo by ID (user's own todos only)
 module.exports.getToDoById = async (req, res) => {
     try {
-        const todo = await ToDoModel.findOne({ 
-            _id: req.params.id, 
-            user: req.user._id 
-        }).populate('category', 'name description color');
+        const todo = await ToDoModel.findOne({
+            where: {
+                id: req.params.id,
+                userId: req.user.id,
+            },
+            include: [{ model: CategoryModel, as: 'category', attributes: ['id', 'name', 'description', 'color'] }],
+        });
         if (!todo) return res.status(404).json({ error: 'ToDo not found' });
-        res.json(todo);
+        res.json(serializeTodo(todo));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -34,10 +57,11 @@ module.exports.saveToDo = async (req, res) => {
         const { title, description, priority, completed, category } = req.body;
         
         // Verify category belongs to the user
-        const CategoryModel = require('../models/CategoryModel');
-        const categoryDoc = await CategoryModel.findOne({ 
-            _id: category, 
-            user: req.user._id 
+        const categoryDoc = await CategoryModel.findOne({
+            where: {
+                id: category,
+                userId: req.user.id,
+            }
         });
         
         if (!categoryDoc) {
@@ -49,14 +73,15 @@ module.exports.saveToDo = async (req, res) => {
             title,
             description,
             priority: priority || 'Medium',
-            completed: false,
-            category,
-            user: req.user._id
+            completed: completed ?? false,
+            categoryId: category,
+            userId: req.user.id
         });
-        
-        // Populate category for response
-        await todo.populate('category', 'name description color');
-        res.status(201).json(todo);
+
+        const createdTodo = await ToDoModel.findByPk(todo.id, {
+            include: [{ model: CategoryModel, as: 'category', attributes: ['id', 'name', 'description', 'color'] }],
+        });
+        res.status(201).json(serializeTodo(createdTodo));
     } catch (error) {
         if (error.name === 'ValidationError') {
             return res.status(400).json({ error: error.message });
@@ -72,10 +97,11 @@ module.exports.updateToDo = async (req, res) => {
         
         // If category is being updated, verify it belongs to the user
         if (category) {
-            const CategoryModel = require('../models/CategoryModel');
-            const categoryDoc = await CategoryModel.findOne({ 
-                _id: category, 
-                user: req.user._id 
+            const categoryDoc = await CategoryModel.findOne({
+                where: {
+                    id: category,
+                    userId: req.user.id,
+                }
             });
             
             if (!categoryDoc) {
@@ -83,19 +109,27 @@ module.exports.updateToDo = async (req, res) => {
             }
         }
         
-        const todo = await ToDoModel.findOneAndUpdate(
-            { _id: req.params.id, user: req.user._id },
-            { title, description, priority, completed, category },
-            { new: true, runValidators: true }
-        ).populate('category', 'name description color');
+        const [updatedRows] = await ToDoModel.update(
+            {
+                ...(title !== undefined ? { title } : {}),
+                ...(description !== undefined ? { description } : {}),
+                ...(priority !== undefined ? { priority } : {}),
+                ...(completed !== undefined ? { completed } : {}),
+                ...(category !== undefined ? { categoryId: category } : {}),
+            },
+            {
+                where: { id: req.params.id, userId: req.user.id },
+            }
+        );
         
-        if (!todo) return res.status(404).json({ error: 'ToDo not found' });
-        res.json(todo);
+        if (!updatedRows) return res.status(404).json({ error: 'ToDo not found' });
+
+        const todo = await ToDoModel.findByPk(req.params.id, {
+            include: [{ model: CategoryModel, as: 'category', attributes: ['id', 'name', 'description', 'color'] }],
+        });
+        res.json(serializeTodo(todo));
     } catch (error) {
-        if (error.name === 'CastError') {
-            return res.status(400).json({ error: 'Invalid ID format' });
-        }
-        if (error.name === 'ValidationError') {
+        if (error.name === 'SequelizeValidationError') {
             return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: error.message });
@@ -105,16 +139,15 @@ module.exports.updateToDo = async (req, res) => {
 // DELETE todo (user's own todos only)
 module.exports.deleteToDo = async (req, res) => {
     try {
-        const todo = await ToDoModel.findOneAndDelete({ 
-            _id: req.params.id, 
-            user: req.user._id 
+        const deletedRows = await ToDoModel.destroy({
+            where: {
+                id: req.params.id,
+                userId: req.user.id,
+            }
         });
-        if (!todo) return res.status(404).json({ error: 'ToDo not found' });
+        if (!deletedRows) return res.status(404).json({ error: 'ToDo not found' });
         res.json({ message: 'ToDo deleted successfully' });
     } catch (error) {
-        if (error.name === 'CastError') {
-            return res.status(400).json({ error: 'Invalid ID format' });
-        }
         res.status(500).json({ error: error.message });
     }
 };

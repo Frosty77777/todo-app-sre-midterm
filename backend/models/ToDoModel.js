@@ -1,36 +1,48 @@
-const mongoose = require('mongoose');
+const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/database');
 
-const ToDoSchema = new mongoose.Schema({
+class ToDo extends Model {}
+
+ToDo.init({
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
     title: {
-        type: String,
-        required: true
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     description: {
-        type: String,
-        required: true
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     priority: {
-        type: String,
-        enum: ['Low', 'Medium', 'High'],
-        required: true,
-        default: 'Medium'
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'Medium',
+        validate: {
+            isIn: [['Low', 'Medium', 'High']],
+        },
     },
     completed: {
-        type: Boolean,
-        default: false
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
     },
-    category: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Category',
-        required: true
+    categoryId: {
+        type: DataTypes.UUID,
+        allowNull: false,
     },
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    }
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
 }, {
-    timestamps: true
+    sequelize,
+    modelName: 'ToDo',
+    tableName: 'todos',
+    timestamps: true,
 });
 
-module.exports = mongoose.model('ToDo', ToDoSchema);
+module.exports = ToDo;

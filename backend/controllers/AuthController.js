@@ -11,13 +11,13 @@ const generateToken = (userId) => {
 // Register
 module.exports.register = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
+        const { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
         }
 
-        const existing = await UserModel.findOne({ email });
+        const existing = await UserModel.findOne({ where: { email } });
         if (existing) {
             return res.status(400).json({ error: 'User already exists' });
         }
@@ -28,12 +28,12 @@ module.exports.register = async (req, res) => {
             role: 'user' // Everyone is a user
         });
 
-        const token = generateToken(user._id);
+        const token = generateToken(user.id);
 
         res.status(201).json({
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 role: user.role
             }
@@ -52,7 +52,7 @@ module.exports.login = async (req, res) => {
             return res.status(400).json({ error: 'Email and password required' });
         }
 
-        const user = await UserModel.findOne({ email });
+        const user = await UserModel.findOne({ where: { email } });
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -62,12 +62,12 @@ module.exports.login = async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const token = generateToken(user._id);
+        const token = generateToken(user.id);
 
         res.json({
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 role: user.role
             }

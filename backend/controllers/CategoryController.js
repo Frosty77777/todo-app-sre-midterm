@@ -1,13 +1,23 @@
 const CategoryModel = require('../models/CategoryModel');
 
+const serializeCategory = (category) => {
+    const data = category.toJSON();
+    return {
+        ...data,
+        _id: data.id,
+        user: data.userId,
+    };
+};
+
 // GET all categories (user's own categories)
 module.exports.getCategories = async (req, res) => {
     try {
-        console.log('Getting categories for user:', req.user._id);
-        const categories = await CategoryModel.find({ user: req.user._id })
-            .sort({ createdAt: -1 });
+        const categories = await CategoryModel.findAll({
+            where: { userId: req.user.id },
+            order: [['createdAt', 'DESC']],
+        });
         console.log('Found categories:', categories.length);
-        res.json(categories);
+        res.json(categories.map(serializeCategory));
     } catch (error) {
         console.error('Error getting categories:', error);
         res.status(500).json({ error: error.message });
@@ -18,11 +28,13 @@ module.exports.getCategories = async (req, res) => {
 module.exports.getCategoryById = async (req, res) => {
     try {
         const category = await CategoryModel.findOne({ 
-            _id: req.params.id, 
-            user: req.user._id 
+            where: {
+                id: req.params.id,
+                userId: req.user.id,
+            }
         });
         if (!category) return res.status(404).json({ error: 'Category not found' });
-        res.json(category);
+        res.json(serializeCategory(category));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -32,7 +44,7 @@ module.exports.getCategoryById = async (req, res) => {
 module.exports.createCategory = async (req, res) => {
     try {
         console.log('Creating category with data:', req.body);
-        console.log('User ID:', req.user._id);
+        console.log('User ID:', req.user.id);
         
         const { name, description, color } = req.body;
         
@@ -45,11 +57,11 @@ module.exports.createCategory = async (req, res) => {
             name: name.trim(),
             description: description.trim(),
             color: color || '#667eea',
-            user: req.user._id
+            userId: req.user.id
         });
         
         console.log('Category created successfully:', category);
-        res.status(201).json(category);
+        res.status(201).json(serializeCategory(category));
     } catch (error) {
         console.error('Error creating category:', error);
         if (error.name === 'ValidationError') {
@@ -62,13 +74,17 @@ module.exports.createCategory = async (req, res) => {
 // PUT update category (user's own)
 module.exports.updateCategory = async (req, res) => {
     try {
-        const category = await CategoryModel.findOneAndUpdate(
-            { _id: req.params.id, user: req.user._id },
-            req.body,
-            { new: true }
+        const [updatedRows] = await CategoryModel.update(
+            {
+                ...(req.body.name !== undefined ? { name: req.body.name.trim() } : {}),
+                ...(req.body.description !== undefined ? { description: req.body.description.trim() } : {}),
+                ...(req.body.color !== undefined ? { color: req.body.color } : {}),
+            },
+            { where: { id: req.params.id, userId: req.user.id } }
         );
-        if (!category) return res.status(404).json({ error: 'Category not found' });
-        res.json(category);
+        if (!updatedRows) return res.status(404).json({ error: 'Category not found' });
+        const category = await CategoryModel.findByPk(req.params.id);
+        res.json(serializeCategory(category));
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -77,11 +93,13 @@ module.exports.updateCategory = async (req, res) => {
 // DELETE category (user's own)
 module.exports.deleteCategory = async (req, res) => {
     try {
-        const category = await CategoryModel.findOneAndDelete({ 
-            _id: req.params.id, 
-            user: req.user._id 
+        const deletedRows = await CategoryModel.destroy({
+            where: {
+                id: req.params.id,
+                userId: req.user.id,
+            }
         });
-        if (!category) return res.status(404).json({ error: 'Category not found' });
+        if (!deletedRows) return res.status(404).json({ error: 'Category not found' });
         res.json({ message: 'Category deleted' });
     } catch (error) {
         res.status(500).json({ error: error.message });

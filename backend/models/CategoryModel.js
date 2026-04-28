@@ -1,32 +1,36 @@
-const mongoose = require('mongoose');
+const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/database');
 
-const CategorySchema = new mongoose.Schema({
+class Category extends Model {}
+
+Category.init({
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
     name: {
-        type: String,
-        required: true,
-        trim: true
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     description: {
-        type: String,
-        required: true
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     color: {
-        type: String,
-        default: '#667eea'
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: '#667eea',
     },
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    }
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
 }, {
-    timestamps: true
+    sequelize,
+    modelName: 'Category',
+    tableName: 'categories',
+    timestamps: true,
 });
 
-// Allow duplicate category names - removed unique constraint
-// Users can have multiple categories with the same name if they want
-
-// Remove any old global unique index on name if it exists
-// We'll handle this in the controller instead
-
-module.exports = mongoose.model('Category', CategorySchema);
+module.exports = Category;

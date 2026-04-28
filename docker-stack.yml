@@ -1,14 +1,14 @@
 version: '3.8'
  
 # ═══════════════════════════════════════════════════════════════════
-#  docker-stack.yml — Docker Swarm Deployment (BONUS +10 pts)
+#  docker-stack.yml — Docker Swarm Deployment 
 #
 #  ПОРЯДОК ЗАПУСКА:
 #    1. docker swarm init
 #    2. docker build -t todo-frontend ./frontend
 #    3. docker build -t todo-backend  ./backend
 #    4. docker stack deploy -c docker-stack.yml todoapp
-#
+# 
 #  ПОЛЕЗНЫЕ КОМАНДЫ:
 #    docker service ls                        # все сервисы и реплики
 #    docker service ps todoapp_backend        # где запущен backend
@@ -27,7 +27,7 @@ networks:
     attachable: true
  
 volumes:
-  mongo_data:
+  postgres_data:
   prometheus_data:
   grafana_data:
  
@@ -61,12 +61,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - MONGODB_URL=mongodb://mongo:27017/todoapp   
+      - DATABASE_URL=postgres://todo_user:todo_password@db:5432/todo_db
       - JWT_SECRET=supersecretjwtkey_changeme
       - JWT_EXPIRES_IN=7d
     networks:
       - app-overlay
       - monitoring-overlay
+    depends_on:
+      - db
     deploy:
       replicas: 2
       update_config:
@@ -78,15 +80,22 @@ services:
         delay: 5s
         max_attempts: 3
  
-  # ── 3. MongoDB (1 реплика, только на manager) ──────────────────
-  mongo:
-    image: mongo:7.0
+  # ── 3. PostgreSQL (1 реплика, только на manager) ───────────────
+  db:
+    image: postgres:15-alpine
     environment:
-      - MONGO_INITDB_DATABASE=todoapp
+      - POSTGRES_USER=todo_user
+      - POSTGRES_PASSWORD=todo_password
+      - POSTGRES_DB=todo_db
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - app-overlay
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_user -d todo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       replicas: 1
       placement:
