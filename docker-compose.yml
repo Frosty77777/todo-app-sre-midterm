@@ -1,0 +1,103 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+      - user-service
+
+  auth-service:
+    build:
+      context: ./auth-service
+    environment:
+      - PORT=5001
+      - DATABASE_URL=postgres://todo_user:todo_password@postgres:5432/todo_db
+      - JWT_SECRET=supersecretjwtkey_changeme
+    ports:
+      - "5001:5001"
+    depends_on:
+      - postgres
+
+  product-service:
+    build:
+      context: ./product-service
+    environment:
+      - PORT=5002
+      - DB_HOST=postgres
+      - DB_NAME=todo_db
+      - DB_USER=todo_user
+      - DB_PASS=todo_password
+    ports:
+      - "5002:5002"
+    depends_on:
+      - postgres
+
+  order-service:
+    build:
+      context: ./order-service
+    environment:
+      - PORT=5003
+      - DB_HOST=postgres
+      - DB_USER=todo_user
+      - DB_PASS=todo_password
+      - DB_NAME=todo_db
+    ports:
+      - "5003:5003"
+    depends_on:
+      - postgres
+
+  user-service:
+    build:
+      context: ./user-service
+    environment:
+      - PORT=5004
+      - DATABASE_URL=postgres://todo_user:todo_password@postgres:5432/todo_db
+    ports:
+      - "5004:5004"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=todo_user
+      - POSTGRES_PASSWORD=todo_password
+      - POSTGRES_DB=todo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_user -d todo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+      - user-service
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+
+volumes:
+  postgres_data:

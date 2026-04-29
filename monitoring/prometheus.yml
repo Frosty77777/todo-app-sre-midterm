@@ -1,32 +1,29 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
-  scrape_timeout: 10s
- 
-rule_files:
-  - /etc/prometheus/alert_rules.yml
- 
+
 scrape_configs:
- 
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
- 
-  - job_name: 'node_exporter'
-    static_configs:
-      - targets: ['node_exporter:9100']
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'host-machine'
- 
-  # Scrapes /metrics from the Node.js backend (port 5000, NOT 3000)
-  - job_name: 'todo-backend'
-    static_configs:
-      - targets: ['backend:5000']
+      - targets: ['prometheus:9090']
+
+  - job_name: 'auth-service'
     metrics_path: /metrics
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'todo-backend'
+    static_configs:
+      - targets: ['auth-service:5001']
+
+  - job_name: 'product-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['product-service:5002']
+
+  - job_name: 'order-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['order-service:5003']
+
+  - job_name: 'user-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['user-service:5004']
  

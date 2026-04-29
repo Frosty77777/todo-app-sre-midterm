@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List Manager</title>
+    <title>Task Manager</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📝 To-Do List Manager</h1>
-            <p class="subtitle">Manage your tasks efficiently</p>
+            <h1>Task Manager</h1>
+            <p class="subtitle">Microservices + SRE enabled workflow</p>
             <div id="auth-buttons">
                 <button id="login-btn" class="auth-btn" type="button" onclick="showAuthModalDirect(true)">Login</button>
                 <button id="register-btn" class="auth-btn" type="button" onclick="showAuthModalDirect(false)">Register</button>
@@ -40,48 +40,11 @@
             </div>
         </div>
 
-        <!-- Categories Section -->
-        <section id="categories-section" class="section" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div>
-                    <h2 style="margin: 0;">My Categories (Groups)</h2>
-                    <p style="color: #666; margin-top: 5px;">Click on a category to view and search todos inside it.</p>
-                </div>
-                <button id="refresh-btn" class="btn-secondary">🔄 Refresh</button>
-            </div>
-            
-            <!-- Category Form -->
-            <div class="category-form">
-                <h3>Create New Category Group</h3>
-                <form id="category-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Category Name *</label>
-                            <input type="text" id="category-name" required placeholder="e.g., Work, Study, Personal">
-                        </div>
-                        <div class="form-group">
-                            <label>Description *</label>
-                            <input type="text" id="category-description" required placeholder="Brief description">
-                        </div>
-                        <div class="form-group">
-                            <label>Color</label>
-                            <input type="color" id="category-color" value="#667eea">
-                        </div>
-                    </div>
-                    <button type="button" id="create-category-btn" class="btn-primary">Create Category</button>
-                </form>
-            </div>
-            
-            <div id="categories-list"></div>
-        </section>
-
-        <!-- Todo Form -->
         <section id="todo-form-section" class="section" style="display: none;">
-            <h2 id="form-title">Create New To-Do in Category</h2>
-            <p style="color: #666; margin-bottom: 20px;">Select a category group to add your todo to.</p>
+            <h2 id="form-title">Add Task</h2>
             <form id="todo-form">
                 <div class="form-group">
-                    <label>Title *</label>
+                    <label>Task *</label>
                     <input type="text" id="title" required>
                 </div>
                 <div class="form-group">
@@ -90,71 +53,62 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Category *</label>
-                        <select id="category" required>
-                            <option value="">Loading...</option>
+                        <label>Product *</label>
+                        <select id="productId" required>
+                            <option value="">Select product</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Priority *</label>
+                        <label>Status *</label>
                         <select id="priority" required>
-                            <option value="Low">Low</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="High">High</option>
+                            <option value="pending">pending</option>
+                            <option value="processing">processing</option>
+                            <option value="completed">completed</option>
                         </select>
                     </div>
                 </div>
-                <button type="submit" id="submit-btn">Create To-Do</button>
+                <button type="submit" id="submit-btn">Add Task</button>
                 <button type="button" id="cancel-btn" style="display: none;">Cancel</button>
             </form>
         </section>
 
-        <!-- Welcome Section (Not logged in) -->
         <section id="welcome-section" class="section">
-            <h2>Welcome to To-Do List Manager!</h2>
+            <h2>Welcome to Task Manager</h2>
             <div class="welcome-content">
-                <h3>How It Works:</h3>
+                <h3>How it works</h3>
                 <ul>
-                    <li>📝 <strong>Register</strong> - Create your free account to get started</li>
-                    <li>🔐 <strong>Login</strong> - Access your personal to-do list</li>
-                    <li>📋 <strong>Manage Tasks</strong> - Create, edit, and organize your todos</li>
-                    <li>🏷️ <strong>Categories</strong> - Organize todos by categories (Work, Study, Personal, etc.)</li>
-                    <li>⭐ <strong>Priorities</strong> - Set priority levels (Low, Medium, High)</li>
-                    <li>✅ <strong>Track Progress</strong> - Update status (Pending, In Progress, Completed)</li>
+                    <li>Register and login via auth-service</li>
+                    <li>Add Task through order-service</li>
+                    <li>Open team chat through user-service WebSocket</li>
                 </ul>
-                <div class="features">
-                    <h3>Features:</h3>
-                    <div class="feature-grid">
-                        <div class="feature-card">
-                            <h4>🔒 Secure</h4>
-                            <p>Your todos are private and saved to your account</p>
-                        </div>
-                        <div class="feature-card">
-                            <h4>📱 Accessible</h4>
-                            <p>Access your todos from anywhere, anytime</p>
-                        </div>
-                        <div class="feature-card">
-                            <h4>⚡ Fast</h4>
-                            <p>Quick and easy task management</p>
-                        </div>
-                        <div class="feature-card">
-                            <h4>🎨 Organized</h4>
-                            <p>Keep your tasks organized with categories</p>
-                        </div>
-                    </div>
-                </div>
-                <p class="get-started">👉 <strong>Get started by registering or logging in above!</strong></p>
             </div>
         </section>
 
-        <!-- Todos Section (Logged in users) - Now todos are shown within categories -->
         <section id="todos-section" class="section" style="display: none;">
+            <h2>Tasks</h2>
             <div id="loading">Loading...</div>
             <div id="error-message"></div>
-            <!-- Todos are now displayed within expanded categories -->
+            <div id="todos-list"></div>
+        </section>
+
+        <section id="chat-section" class="section" style="display: none;">
+            <h2>Team Chat</h2>
+            <div id="chat-messages" style="max-height: 220px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ddd; padding: 10px;"></div>
+            <form id="chat-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Message</label>
+                        <input type="text" id="chat-input" required placeholder="Type a message">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn-primary">Send</button>
+                    </div>
+                </div>
+            </form>
         </section>
     </div>
 
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

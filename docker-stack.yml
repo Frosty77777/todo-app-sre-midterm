@@ -33,7 +33,7 @@ volumes:
  
 services:
  
-  # ── 1. Frontend (2 реплики) ────────────────────────────────────
+  # ── 1. Frontend (1 реплики) ────────────────────────────────────
   frontend:
     image: todo-frontend:latest
     ports:
@@ -43,7 +43,7 @@ services:
     depends_on:
       - backend
     deploy:
-      replicas: 2
+      replicas: 1
       update_config:
         parallelism: 1
         delay: 10s
