@@ -1,9 +1,9 @@
 FROM nginx:1.25-alpine
  
-COPY index.html  /usr/share/nginx/html/index.html
-COPY styles.css  /usr/share/nginx/html/styles.css
-COPY app.js      /usr/share/nginx/html/app.js
-COPY nginx.conf  /etc/nginx/conf.d/default.conf
+RUN rm -rf /usr/share/nginx/html/*
+COPY index.html /usr/share/nginx/html/index.html
+COPY app.js /usr/share/nginx/html/app.js
+COPY styles.css /usr/share/nginx/html/styles.css
  
 EXPOSE 80
  

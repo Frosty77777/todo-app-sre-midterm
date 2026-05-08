@@ -1,8 +1,9 @@
+const API_BASE = '/api';
 const API = {
-    auth: 'http://localhost:5001/api/auth',
-    orders: 'http://localhost:5003/api/orders',
-    products: 'http://localhost:5002/api/products',
-    users: 'http://localhost:5004/api/users',
+    auth: `${API_BASE}/auth`,
+    orders: `${API_BASE}/orders`,
+    products: `${API_BASE}/products`,
+    users: `${API_BASE}/users`,
 };
 
 let token = localStorage.getItem('token');
@@ -133,20 +134,35 @@ async function handleTaskSubmit(e) {
     const status = document.getElementById('priority').value;
     const productId = productSelect.value;
     if (!productId) return showError('Please choose a product');
+    const taskData = {
+        userId: user.id,
+        productId,
+        status,
+    };
 
-    const res = await fetch(API.orders, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-            userId: user.id,
-            productId,
-            status,
-        }),
-    });
-    const data = await res.json();
-    if (!res.ok) return showError(data.error || 'Failed to add task');
+    try {
+        console.log('Sending task...', taskData);
+        const res = await fetch(API.orders, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(taskData),
+        });
+        const data = await res.json();
+        if (!res.ok) return showError(data.error || 'Failed to add task');
 
-    todoForm.reset();
+        todoForm.reset();
+        await fetchTasks();
+        // Explicitly clear task controls after submission.
+        productSelect.value = '';
+        const prioritySelect = document.getElementById('priority');
+        if (prioritySelect) prioritySelect.value = '';
+    } catch (error) {
+        console.error('Error details:', error);
+        showError(error.message || 'Failed to add task');
+    }
+}
+
+async function fetchTasks() {
     await loadTasks();
 }
 
@@ -181,7 +197,7 @@ function renderTasks(tasks) {
 }
 
 function connectChat() {
-    socket = io('http://localhost:5004');
+    socket = io(window.location.origin);
     socket.on('chat:system', (payload) => appendChat('System', payload.message));
     socket.on('chat:message', (payload) => appendChat(payload.sender, payload.text));
 }

@@ -1,0 +1,61 @@
+groups:
+  - name: todo_app_basic_availability
+    interval: 15s
+    rules:
+      - alert: MicroserviceDown
+        expr: up{job=~"auth-service|product-service|order-service|user-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          app: todo-app
+          team: sre
+        annotations:
+          summary: "Service down: {{ $labels.job }}"
+          description: "{{ $labels.job }} has been unreachable by Prometheus for more than 2 minutes."
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          app: todo-app
+          team: sre
+        annotations:
+          summary: "Prometheus target down"
+          description: "Prometheus cannot scrape itself for more than 2 minutes."
+
+  - name: todo_app_basic_performance
+    interval: 15s
+    rules:
+      - alert: HighErrorRate
+        expr: (sum(rate(http_requests_total{job=~"auth-service|product-service|order-service|user-service",status_code=~"5.."}[5m])) / sum(rate(http_requests_total{job=~"auth-service|product-service|order-service|user-service"}[5m]))) > 0.05 and sum(rate(http_requests_total{job=~"auth-service|product-service|order-service|user-service"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          app: todo-app
+          team: sre
+        annotations:
+          summary: "High 5xx error rate"
+          description: "5xx error ratio across core services is above 5% for 5 minutes."
+
+      - alert: HighProcessCPUUsage
+        expr: rate(process_cpu_seconds_total{job=~"auth-service|product-service|order-service|user-service"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          app: todo-app
+          team: sre
+        annotations:
+          summary: "High CPU usage on {{ $labels.job }}"
+          description: "{{ $labels.job }} CPU usage is above 80% of one core for 5 minutes."
+
+      - alert: SustainedHighProcessCPUUsage
+        expr: rate(process_cpu_seconds_total{job=~"auth-service|product-service|order-service|user-service"}[5m]) > 1.2
+        for: 10m
+        labels:
+          severity: critical
+          app: todo-app
+          team: sre
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.job }}"
+          description: "{{ $labels.job }} CPU usage is above 120% (multi-core saturation) for 10 minutes."

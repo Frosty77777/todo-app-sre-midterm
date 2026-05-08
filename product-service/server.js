@@ -5,7 +5,18 @@ const client = require('prom-client');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5002;
-const sequelize = new Sequelize('postgres://todo_user:todo_password@postgres:5432/todo_db', {
+const DATABASE_URL = process.env.DATABASE_URL;
+
+function validateConfig() {
+    if (!DATABASE_URL) {
+        throw new Error('Missing required environment variable: DATABASE_URL');
+    }
+    if (!/^postgres(ql)?:\/\//.test(DATABASE_URL)) {
+        throw new Error('DATABASE_URL must start with postgres:// or postgresql://');
+    }
+}
+
+const sequelize = new Sequelize(DATABASE_URL, {
         dialect: 'postgres',
         logging: false,
             });
@@ -104,6 +115,7 @@ app.get('/metrics', async (req, res) => {
 
 (async () => {
     try {
+        validateConfig();
         console.log('Waiting 10 seconds for DB and Env...');
         await new Promise(resolve => setTimeout(resolve, 10000));
 

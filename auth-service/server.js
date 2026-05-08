@@ -8,8 +8,20 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
+const DATABASE_URL = process.env.DATABASE_URL;
 
-const sequelize = new Sequelize('postgres://todo_user:todo_password@postgres:5432/todo_db', {
+function validateConfig() {
+    const required = ['DATABASE_URL', 'JWT_SECRET'];
+    const missing = required.filter((name) => !process.env[name]);
+    if (missing.length) {
+        throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    }
+    if (!/^postgres(ql)?:\/\//.test(process.env.DATABASE_URL)) {
+        throw new Error('DATABASE_URL must start with postgres:// or postgresql://');
+    }
+}
+
+const sequelize = new Sequelize(DATABASE_URL, {
     dialect: 'postgres',
     logging: false,
 });
@@ -112,6 +124,7 @@ app.get('/metrics', async (req, res) => {
 
 (async () => {
     try {
+        validateConfig();
         await sequelize.authenticate();
         await sequelize.sync();
         app.listen(PORT, () => console.log(`auth-service running on ${PORT}`));

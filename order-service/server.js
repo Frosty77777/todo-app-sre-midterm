@@ -4,19 +4,19 @@ const { Sequelize, DataTypes, Model } = require('sequelize');
 const client = require('prom-client');
 require('dotenv').config();
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 const PORT = process.env.PORT || 5003;
 
-// Incident-simulation ready DB config from separate env vars.
-// 1. Заменяем блок создания sequelize (хардкодим URL)
 const sequelize = new Sequelize('postgres://todo_user:todo_password@postgres:5432/todo_db', {
     dialect: 'postgres',
     logging: false,
 });
 
-// 2. Исправляем модель Order
 class Order extends Model {}
 Order.init({
-    // ОЧЕНЬ ВАЖНО: меняем id с UUID на STRING
+    // VERY IMPORTANT: Change id from UUID to STRING
     id: { 
         type: DataTypes.STRING, 
         primaryKey: true,
